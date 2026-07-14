@@ -219,8 +219,7 @@ const HOTELS = [
   { name: "Hotel del Coronado", area: "Coronado Beach / Orange Ave", total: 10073.18, nights: 4, comp4: 10073.18, comp4Flag: "2 rooms total", rooms: "2 rooms · grand historic resort", roomsSort: "2 rooms", beach: 5, beachNote: "World-class wide white-sand Coronado Beach", walk: 5, walkNote: "Foot of Orange Avenue boutiques and dining", drive: 30, san: 12, tripDrive: 295, parking: 80, parkingNote: "Valet parking (est. $20/nt)", nearby: ["Coronado Beach (on doorstep)", "Orange Avenue dining (walkable)", "Ferry Landing (walkable)"], fit: 2, fitGrade: "C", fitNote: "Iconic, but wrong side of the bay for a La Jolla-anchored week — and 4x the cheapest option", walkable: true, beachfront: true, isNew: false, lat: 32.6810, lon: -117.1784, gq: "Hotel del Coronado" }
 ];
 
-const WEATHER = [ { day: "Mon Aug 3", high: 76, low: 68, icon: "☀️", note: "Sunny, perfect beach" }, { day: "Tue Aug 4", high: 75, low: 67, icon: "☀️", note: "Sunny, light breeze" }, { day: "Wed Aug 5", high: 74, low: 66, icon: "⛅", note: "Partly cloudy" }, { day: "Thu Aug 6", high: 75, low: 67, icon: "☀️", note: "Sunny, possible marine layer AM" }, { day: "Fri Aug 7", high: 74, low: 66, icon: "☀️", note: "Sunny, warming by noon" } ];
-
+const WEATHER = [ { day: "Mon Aug 3", high: 24, low: 20, icon: "☀️", note: "Sunny, perfect beach" }, { day: "Tue Aug 4", high: 24, low: 19, icon: "☀️", note: "Sunny, light breeze" }, { day: "Wed Aug 5", high: 23, low: 19, icon: "⛅", note: "Partly cloudy" }, { day: "Thu Aug 6", high: 24, low: 19, icon: "☀️", note: "Sunny, possible marine layer AM" }, { day: "Fri Aug 7", high: 23, low: 19, icon: "☀️", note: "Sunny, warming by noon" } ];
 const FITCOL = { A: "#1d7a5f", B: "#b98a45", C: "#b0532e" };
 const gmb = q => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
 const fmtCAD = n => "$" + n.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
