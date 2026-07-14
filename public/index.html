@@ -33,7 +33,8 @@
   @media (max-width: 1200px) { .sidebar-wrap { grid-template-columns: 1fr; } }
   .table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; min-width: 1250px; }
-  th { position: sticky; top: 0; background: var(--sea-deep); color: #dcebef; text-align: left; padding: 12px 14px; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--sea-deep); color: #dcebef; text-align: left; padding: 12px 14px; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap; position: relative; }
+  th::after { content: ''; position: absolute; right: 0; top: 0; height: 100%; width: 6px; cursor: col-resize; background: transparent; }
   th:hover { background: var(--sea); color: #fff; }
   th .dir { display: inline-block; width: 12px; opacity: 0.9; }
   th.sorted { color: #fff; box-shadow: inset 0 -3px 0 var(--sand); }
@@ -365,6 +366,41 @@ btnT.addEventListener("click", () => setView(false));
 btnM.addEventListener("click", () => setView(true));
 
 document.getElementById("saveBtn").addEventListener("click", saveNote);
+
+// Column resizing
+const table = document.getElementById("grid");
+const cols = table.querySelectorAll("th");
+
+cols.forEach((col, idx) => {
+  col.style.position = "relative";
+  const resizeHandle = document.createElement("div");
+  resizeHandle.style.cssText = "position:absolute;right:0;top:0;height:100%;width:6px;cursor:col-resize;user-select:none;";
+  col.appendChild(resizeHandle);
+  
+  resizeHandle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = col.offsetWidth;
+    
+    const onMouseMove = (e) => {
+      const diff = e.clientX - startX;
+      col.style.width = (startWidth + diff) + "px";
+    };
+    
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      localStorage.setItem("colWidth_" + idx, col.offsetWidth);
+    };
+    
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  });
+  
+  // Load saved width
+  const saved = localStorage.getItem("colWidth_" + idx);
+  if (saved) col.style.width = saved + "px";
+});
 
 db.ref('starred').on('value', snap => { state.starred = snap.val() || []; renderTable(); });
 db.ref('notes').on('value', snap => { const notes = snap.val() || {}; Object.keys(notes).forEach(key => { state.notes[key.replace(/_/g, ' ')] = notes[key]; }); if (state.currentHotel) { document.getElementById("notesInput").value = state.notes[state.currentHotel] || ''; } });
