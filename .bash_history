@@ -1,0 +1,524 @@
+  .nearby-list { font-size: 12px; line-height: 1.6; }
+  .nearby-item { margin-bottom: 4px; color: var(--ink-soft); }
+  .sync-status { font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+  .sync-status.online { color: var(--kelp); }
+  footer { margin: 14px 0 0; color: var(--ink-faint); font-size: 12px; }
+  #mapView { display: none; }
+  .map-layout { display: grid; grid-template-columns: minmax(340px, 1.15fr) minmax(280px, 0.85fr); gap: 16px; align-items: start; }
+  .map-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .map-card svg { width: 100%; height: auto; display: block; }
+  .map-list { display: flex; flex-direction: column; gap: 8px; }
+  .map-item { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .map-item:hover, .map-item.hot { border-color: var(--sea); background: var(--wash); }
+  .pin-chip { flex: none; width: 24px; height: 24px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+  .map-item .mi-name { font-weight: 600; font-size: 13.5px; }
+  .map-item .mi-name a { color: var(--sea-deep); text-decoration: none; }
+  .map-item .mi-name a:hover { color: var(--sea); text-decoration: underline; }
+  .map-item .mi-sub { font-size: 12px; color: var(--ink-soft); }
+  .legend { font-size: 12px; color: var(--ink-soft); display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 4px 2px; }
+  .lg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .lg-star { color: var(--sea-deep); font-size: 13px; margin-right: 4px; }
+  @media (max-width: 900px) { .map-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) { body { padding: 16px 10px 36px; } h1 { font-size: 22px; } .sidebar-wrap { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">San Diego · Mon Aug 3 – Fri Aug 7, 2026</p>
+  <h1>Hotel comparison board</h1>
+  <p class="sub">Eleven options synced across your devices via Firebase. Click to add notes and favorite hotels. Your data updates in real-time on any device or browser. Hotel names open Google Maps.</p>
+</header>
+
+<div class="controls">
+  <span class="viewtoggle">
+    <button class="viewbtn active" id="btnTable">Table</button>
+    <button class="viewbtn" id="btnMap">Coast map</button>
+  </span>
+  <button class="chip active" data-filter="all">All 11 hotels</button>
+  <button class="chip" data-filter="walkable">Walkable to dining</button>
+  <button class="chip" data-filter="beachfront">Direct beachfront</button>
+  <button class="chip" data-filter="under4k">Under $4,000 CAD</button>
+  <button class="chip" data-filter="starred">★ Favorites</button>
+  <span class="hint" id="hintWrap">Sorting by: <strong id="sortLabel">Total cost, low → high</strong></span>
+</div>
+
+<div class="sidebar-wrap">
+<div id="tableView">
+  <div class="table-wrap">
+  <table id="grid">
+    <thead>
+      <tr>
+        <th data-col="name" style="width:200px">Hotel <span class="dir"></span></th>
+        <th data-col="total">Total (CAD) <span class="dir"></span></th>
+        <th data-col="nights">Nights <span class="dir"></span></th>
+        <th data-col="pernight">Per night <span class="dir"></span></th>
+        <th data-col="comp4">4-night equiv. <span class="dir"></span></th>
+        <th data-col="rooms">Rooms &amp; beds <span class="dir"></span></th>
+        <th data-col="beach">Beach access <span class="dir"></span></th>
+        <th data-col="walk">Walkability <span class="dir"></span></th>
+        <th data-col="drive">Drive to La Jolla <span class="dir"></span></th>
+        <th data-col="san">Drive to SAN <span class="dir"></span></th>
+        <th data-col="tripdrive">Trip driving <span class="dir"></span></th>
+        <th data-col="fit">Itinerary fit <span class="dir"></span></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  </div>
+</div>
+
+<div id="mapView">
+  <div class="legend">
+    <span><span class="lg-dot" style="background:#1d7a5f"></span>A fit — walk your plan</span>
+    <span><span class="lg-dot" style="background:#b98a45"></span>B fit — short drives</span>
+    <span><span class="lg-dot" style="background:#b0532e"></span>C fit — long hauls</span>
+    <span><span class="lg-star">&#9670;</span>Itinerary stop</span>
+  </div>
+  <div class="map-layout">
+    <div class="map-card"><svg id="coast" viewBox="0 0 560 920" role="img" aria-label="Stylized map of the San Diego coast showing eleven hotel locations and itinerary stops"></svg></div>
+    <div class="map-list" id="mapList"></div>
+  </div>
+</div>
+
+<div id="sidebarView" class="sidebar">
+  <div class="sidebar-card">
+    <p class="sidebar-title">📍 Aug 3–7 Weather</p>
+    <div id="weatherPanel"></div>
+  </div>
+  
+  <div class="sidebar-card">
+    <p class="sidebar-title">🅿️ Parking Estimates</p>
+    <div id="parkingPanel"></div>
+  </div>
+  
+  <div class="sidebar-card">
+    <p class="sidebar-title">🗺️ Nearby from Selected</p>
+    <div id="nearbyPanel" class="nearby-list">
+      <p style="color: var(--ink-faint); font-size: 12px;">Click a hotel row to see nearby attractions</p>
+    </div>
+  </div>
+  
+  <div class="sidebar-card">
+    <p class="sidebar-title">📝 Personal Notes</p>
+    <textarea id="notesInput" class="note-input" placeholder="Add thoughts on the selected hotel..."></textarea>
+    <button class="save-btn" id="saveBtn" onclick="saveNote()">Save Note</button>
+    <div class="sync-status" id="syncStatus">💾 Ready</div>
+  </div>
+</div>
+</div>
+
+<footer>Data syncs across devices via Firebase. Parking is daily valet/self-serve estimate × 4 nights. Nearby attractions are walkable or a short drive from each hotel. Verify live rates and availability before booking.</footer>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD2kZ1NZkIxleu7b53xCdi2ozqP05b94X4",
+  authDomain: "san-diego-hotels.firebaseapp.com",
+  databaseURL: "https://san-diego-hotels-default-rtdb.firebaseio.com",
+  projectId: "san-diego-hotels",
+  storageBucket: "san-diego-hotels.firebasestorage.app",
+  messagingSenderId: "882417418834",
+  appId: "1:882417418834:web:e0f251b3a53f2ccc24d58b"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const HOTELS = [
+  { name: "Grande Colonial La Jolla", area: "La Jolla Village core", total: 2433.60, nights: 3, comp4: 3245, comp4Flag: "Quoted 3 nts — trip is 4", rooms: "1 room · standard layout", roomsSort: "1 room", beach: 3, beachNote: "Rocky Cove steps away; 5-min drive to sandy Shores", walk: 5, walkNote: "Heart of the village — restaurants and shops at the door", drive: 0, san: 20, tripDrive: 100, parking: 0, parkingNote: "Valet available on-site (est. $60/nt)", nearby: ["Duke's La Jolla (oceanfront dining, walkable)", "Birch Aquarium (5 min drive)", "Torrey Pines (15 min)"], fit: 5, fitGrade: "A", fitNote: "Walk to Mon & Thu dinners, Cove, and shopping; only Zoo day needs the car", walkable: true, beachfront: false, isNew: false, lat: 32.8455, lon: -117.2765, gq: "Grande Colonial Hotel La Jolla" },
+  { name: "Sheraton La Jolla Hotel", area: "Inland, near UCSD", total: 2912.00, nights: 4, comp4: 2912, comp4Flag: null, rooms: "1-bed suite (572 sq ft) · 2 queens + sofa bed", roomsSort: "1-bed suite", beach: 1, beachNote: "No access — drive down the hill to any sand", walk: 1, walkNote: "Not walkable; car needed for every meal", drive: 7, san: 20, tripDrive: 140, parking: 0, parkingNote: "Free self-parking on-site", nearby: ["Torrey Pines (10 min drive)", "UCSD campus (adjacent)", "Del Mar farmer's market (15 min)"], fit: 2, fitGrade: "C", fitNote: "Cheapest true 4-night rate, but you'd drive to every single itinerary stop", walkable: false, beachfront: false, isNew: false, lat: 32.8697, lon: -117.2260, gq: "Sheraton La Jolla Hotel" },
+  { name: "Bahia Resort Hotel", area: "Mission Bay peninsula", total: 3427.58, nights: 4, comp4: 3427.58, comp4Flag: "Incl. $717 taxes/fees · Stay Longer rate", rooms: "Junior suite · 2 queens (2 adults + 3 kids)", roomsSort: "1-bed suite", beach: 4, beachNote: "Calm bay sand on-site; 5–10 min walk across to Mission Beach ocean surf", walk: 3, walkNote: "Walk to Mission Beach boardwalk and Belmont Park eats — casual strip, not a village", drive: 15, san: 13, tripDrive: 175, parking: 20, parkingNote: "Valet parking available (est. $5/nt)", nearby: ["Belmont Park (walkable)", "Mission Beach Boardwalk (10 min walk)", "Pacific Beach (5 min drive)"], fit: 3, fitGrade: "B", fitNote: "Best price for a party of 5 with a real beach, but La Jolla anchors and dinners all need the car", walkable: true, beachfront: true, isNew: false, lat: 32.7758, lon: -117.2478, gq: "Bahia Resort Hotel San Diego" },
+  { name: "Scripps Inn La Jolla Cove", area: "La Jolla Cove cliffs", total: 3462.00, nights: 4, comp4: 3462, comp4Flag: null, rooms: "2-bed suite (600 sq ft) · 2 queens", roomsSort: "2-bed suite", beach: 3, beachNote: "On the Cove cliffs — sea lions out the window; 5-min drive for wide sand", walk: 5, walkNote: "On the coastal cliff path, steps to village core", drive: 0, san: 20, tripDrive: 100, parking: 0, parkingNote: "Valet parking available on-site", nearby: ["La Jolla Cove (walkable sea lions)", "Birch Aquarium (10 min walk)", "George's at the Cove (dining, walkable)"], fit: 5, fitGrade: "A", fitNote: "Same village-core logistics as Grande Colonial, with more space and true 4-night pricing", walkable: true, beachfront: false, isNew: false, lat: 32.8468, lon: -117.2788, gq: "Scripps Inn La Jolla" },
+  { name: "Coronado Island Marriott Resort & Spa", area: "Coronado Island (south)", total: 2729.45, nights: 4, comp4: 2729.45, comp4Flag: "USD $2,007 · Member rate", rooms: "Guest room · 2 doubles + sofa bed (2 adults + 3 kids)", roomsSort: "1 room", beach: 4, beachNote: "Not beachfront, but close to Coronado Beach; 5-min walk to sand", walk: 2, walkNote: "Isolated resort setting; 1–2 mi drive to Coronado Village shops and dining", drive: 30, san: 12, tripDrive: 315, parking: 20, parkingNote: "Valet & self-parking available (est. $5/nt)", nearby: ["Coronado Beach (5 min walk)", "Hotel del Coronado (10 min walk)", "Coronado Village (1.5 mi drive)"], fit: 2, fitGrade: "C", fitNote: "Sleeps 5 affordably and airport is close, but 30+ min from La Jolla anchor days adds 3+ hours to the week", walkable: false, beachfront: false, isNew: true, lat: 32.6770, lon: -117.1800, gq: "Coronado Island Marriott Resort and Spa" },
+  { name: "Loews Coronado Bay Resort", area: "Coronado peninsula (south)", total: 3961.34, nights: 4, comp4: 3961.34, comp4Flag: "USD $2,798 · 2 rooms", rooms: "2 rooms · standard resort", roomsSort: "2 rooms", beach: 3, beachNote: "Calm bay marina; ocean surf via pedestrian tunnel", walk: 1, walkNote: "Isolated — 5–6 mi drive to Coronado Village", drive: 35, san: 18, tripDrive: 350, parking: 40, parkingNote: "Valet parking (est. $10/nt)", nearby: ["Coronado Beach (0.5 mi drive)", "Ferry Landing (walkable waterfront)", "Silver Strand Beach (15 min drive)"], fit: 1, fitGrade: "C", fitNote: "35+ min from every La Jolla anchor on your plan; adds an hour-plus of driving most days", walkable: false, beachfront: false, isNew: false, lat: 32.6262, lon: -117.1319, gq: "Loews Coronado Bay Resort" },
+  { name: "L'Auberge Del Mar", area: "Del Mar Village center", total: 5129.52, nights: 4, comp4: 5129.52, comp4Flag: "Incl. $973 taxes/fees · flexible rate", rooms: "Village room · 2 double beds (2 adults + 2 kids)", roomsSort: "1 room", beach: 4, beachNote: "Not on the sand, but a 2–3 min walk across the street down to Del Mar beach", walk: 5, walkNote: "Heart of Del Mar Village — shops and restaurants out the front door", drive: 15, san: 25, tripDrive: 195, parking: 0, parkingNote: "Complimentary self-parking on-site", nearby: ["Del Mar Beach (2 min walk)", "Del Mar Farmers Market (Wed, walkable)", "Torrey Pines Reserve (10 min drive)"], fit: 3, fitGrade: "B", fitNote: "Best village feel outside La Jolla and 10 min to Torrey Pines, but La Jolla days and the Zoo all need the car", walkable: true, beachfront: false, isNew: false, lat: 32.9576, lon: -117.2650, gq: "L'Auberge Del Mar" },
+  { name: "Paradise Point Resort & Spa", area: "Mission Bay island", total: 5482.60, nights: 4, comp4: 5482.60, comp4Flag: "USD $3,873 · 2 rooms", rooms: "2 rooms · private bungalows", roomsSort: "2 rooms", beach: 4, beachNote: "Direct calm bay sand, mile of shoreline — no ocean waves", walk: 1, walkNote: "Own island; bridge crossing by car for anything off-property", drive: 15, san: 13, tripDrive: 170, parking: 0, parkingNote: "Complimentary parking on-site", nearby: ["Mission Bay lagoon (on property)", "Belmont Park (5 min drive)", "SeaWorld San Diego (1 mi drive)"], fit: 3, fitGrade: "B", fitNote: "Great resort downtime and close-ish to the Zoo, but every La Jolla day starts with a drive", walkable: false, beachfront: true, isNew: false, lat: 32.7794, lon: -117.2417, gq: "Paradise Point Resort and Spa San Diego" },
+  { name: "The Wayfarer San Diego", area: "Pacific Beach boardwalk", total: 5486.00, nights: 4, comp4: 5486, comp4Flag: "Premium sale rate", rooms: "1-bed premium suite · 2 queens + balcony", roomsSort: "1-bed suite", beach: 5, beachNote: "Directly on Pacific Beach sand — swimming waves outside", walk: 4, walkNote: "Lively boardwalk; dozens of casual taco shops and bars", drive: 12, san: 15, tripDrive: 155, parking: 60, parkingNote: "Valet parking (est. $15/nt)", nearby: ["Pacific Beach Boardwalk (on doorstep)", "Crystal Pier (walkable)", "Catania Pizzeria (walkable)"], fit: 3, fitGrade: "B", fitNote: "Fantastic beach base, but 12 min from La Jolla means driving to most planned stops", walkable: true, beachfront: true, isNew: false, lat: 32.8020, lon: -117.2565, gq: "The Wayfarer San Diego Pacific Beach" },
+  { name: "Del Mar Beach Hotel", area: "Del Mar City Beach", total: 6377.44, nights: 4, comp4: 6377.44, comp4Flag: "2 rooms total", rooms: "2 rooms · fully renovated", roomsSort: "2 rooms", beach: 5, beachNote: "On pristine, wide Del Mar sand with great swimming", walk: 4, walkNote: "Flat 5-min stroll into upscale Del Mar Village", drive: 15, san: 25, tripDrive: 195, parking: 0, parkingNote: "Complimentary self-parking on-site", nearby: ["Del Mar Beach (on doorstep)", "Del Mar farmer's market (walkable)", "Torrey Pines (10 min drive)"], fit: 3, fitGrade: "B", fitNote: "Lovely and close to Torrey Pines, but south-facing days (Zoo, airport) get longer", walkable: true, beachfront: true, isNew: false, lat: 32.9532, lon: -117.2686, gq: "Del Mar Beach Hotel" },
+  { name: "Hotel del Coronado", area: "Coronado Beach / Orange Ave", total: 10073.18, nights: 4, comp4: 10073.18, comp4Flag: "2 rooms total", rooms: "2 rooms · grand historic resort", roomsSort: "2 rooms", beach: 5, beachNote: "World-class wide white-sand Coronado Beach", walk: 5, walkNote: "Foot of Orange Avenue boutiques and dining", drive: 30, san: 12, tripDrive: 295, parking: 80, parkingNote: "Valet parking (est. $20/nt)", nearby: ["Coronado Beach (on doorstep)", "Orange Avenue dining (walkable)", "Ferry Landing (walkable)"], fit: 2, fitGrade: "C", fitNote: "Iconic, but wrong side of the bay for a La Jolla-anchored week — and 4x the cheapest option", walkable: true, beachfront: true, isNew: false, lat: 32.6810, lon: -117.1784, gq: "Hotel del Coronado" }
+];
+
+const STOPS = [ { n: "Torrey Pines Reserve", lat: 32.9180, lon: -117.2540, dy: -10 }, { n: "La Jolla Shores", lat: 32.8570, lon: -117.2545, dy: -10 }, { n: "La Jolla Cove", lat: 32.8503, lon: -117.2721, dy: 18 }, { n: "San Diego Zoo / Balboa Park", lat: 32.7360, lon: -117.1490, dy: -10 }, { n: "Little Italy", lat: 32.7230, lon: -117.1690, dy: 18 }, { n: "SAN Airport", lat: 32.7338, lon: -117.1933, dy: -10 } ];
+
+const WEATHER = [ { day: "Mon Aug 3", high: 76, low: 68, icon: "☀️", note: "Sunny, perfect beach" }, { day: "Tue Aug 4", high: 75, low: 67, icon: "☀️", note: "Sunny, light breeze" }, { day: "Wed Aug 5", high: 74, low: 66, icon: "⛅", note: "Partly cloudy" }, { day: "Thu Aug 6", high: 75, low: 67, icon: "☀️", note: "Sunny, possible marine layer AM" }, { day: "Fri Aug 7", high: 74, low: 66, icon: "☀️", note: "Sunny, warming by noon" } ];
+
+const FITCOL = { A: "#1d7a5f", B: "#b98a45", C: "#b0532e" };
+const gmb = q => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+const fmtCAD = n => "$" + n.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtCAD0 = n => "$" + Math.round(n).toLocaleString("en-CA");
+const fmtDur = m => { const h = Math.floor(m / 60), r = m % 60; return h ? h + " h" + (r ? " " + r + " m" : "") : r + " min"; };
+const dots = v => { let s = ""; for (let i = 1; i <= 5; i++) s += '<span class="' + (i <= v ? "on" : "off") + '">&#9679;</span>'; return '<span class="dots" title="' + v + ' of 5">' + s + '</span>'; };
+
+let state = { col: "total", asc: true, filter: "all", starred: [], currentHotel: null, notes: {} };
+
+const COLS = { name: { get: h => h.name, label: "Hotel name" }, total: { get: h => h.total, label: "Total cost" }, nights: { get: h => h.nights, label: "Nights" }, pernight: { get: h => h.total / h.nights, label: "Per-night cost" }, comp4: { get: h => h.comp4, label: "4-night equivalent" }, rooms: { get: h => h.roomsSort, label: "Rooms" }, beach: { get: h => h.beach, label: "Beach access" }, walk: { get: h => h.walk, label: "Walkability" }, drive: { get: h => h.drive, label: "Drive to La Jolla" }, san: { get: h => h.san, label: "Drive to SAN" }, tripdrive: { get: h => h.tripDrive, label: "Trip driving total" }, fit: { get: h => h.fit, label: "Itinerary fit" } };
+
+function passesFilter(h) { if (state.filter === "walkable") return h.walkable; if (state.filter === "beachfront") return h.beachfront; if (state.filter === "under4k") return h.comp4 < 4000; if (state.filter === "starred") return state.starred.includes(h.name); return true; }
+
+function sortedFiltered() { return HOTELS.filter(passesFilter).slice().sort((a, b) => { const va = COLS[state.col].get(a), vb = COLS[state.col].get(b); const cmp = (typeof va === "number") ? va - vb : String(va).localeCompare(String(vb)); return state.asc ? cmp : -cmp; }); }
+
+function toggleStar(name, e) { e.stopPropagation(); const idx = state.starred.indexOf(name); if (idx > -1) state.starred.splice(idx, 1); else state.starred.push(name); db.ref('starred').set(state.starred); renderTable(); }
+
+function selectHotel(name) { state.currentHotel = name; const h = HOTELS.find(x => x.name === name); if (h) { document.getElementById("parkingPanel").innerHTML = '<div class="parking-item"><span class="parking-label">Valet/Self</span><span class="parking-cost">' + (h.parking === 0 ? 'Free' : '$' + (h.parking * 4)) + '</span></div><div class="parking-item"><span class="parking-label" style="font-size: 11px; color: var(--ink-faint);">' + h.parkingNote + '</span></div>'; document.getElementById("nearbyPanel").innerHTML = '<div class="nearby-list">' + h.nearby.map(n => '<div class="nearby-item">🗺️ ' + n + '</div>').join('') + '</div>'; document.getElementById("notesInput").value = state.notes[name] || ''; } }
+
+function saveNote() { if (state.currentHotel) { const note = document.getElementById("notesInput").value; state.notes[state.currentHotel] = note; const btn = document.getElementById("saveBtn"); btn.classList.add("saving"); btn.textContent = "Saving..."; db.ref('notes/' + state.currentHotel.replace(/[^a-zA-Z0-9]/g, '_')).set(note, err => { btn.classList.remove("saving"); btn.textContent = "Save Note"; if (err) { document.getElementById("syncStatus").textContent = "❌ Error saving"; setTimeout(() => { document.getElementById("syncStatus").textContent = "💾 Ready"; }, 2000); } else { document.getElementById("syncStatus").textContent = "✓ Synced"; setTimeout(() => { document.getElementById("syncStatus").textContent = "💾 Ready"; }, 2000); } }); } }
+
+function renderTable() { const best = Math.min.apply(null, HOTELS.map(h => h.tripDrive)); document.getElementById("rows").innerHTML = sortedFiltered().map(h => { const fc = h.fitGrade === "A" ? "fit-a" : h.fitGrade === "B" ? "fit-b" : "fit-c"; const extra = h.tripDrive - best; const isStarred = state.starred.includes(h.name); return '<tr class="' + (h.isNew ? "new-row" : "") + '" onclick="selectHotel(\'' + h.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;"><td><button class="star-btn ' + (isStarred ? 'starred' : '') + '" onclick="toggleStar(\'' + h.name.replace(/'/g, "\\'") + '\', event)" title="favorite">★</button> <div class="hotel-name"><a href="' + gmb(h.gq) + '" target="_blank" rel="noopener">' + h.name + '</a><span class="ext">&#8599;</span>' + (h.isNew ? '<span class="new-badge">NEW</span>' : '') + '</div><div class="hotel-area">' + h.area + '</div></td><td class="num total">' + fmtCAD(h.total) + '</td><td class="num">' + h.nights + '</td><td class="num">' + fmtCAD0(h.total / h.nights) + '</td><td class="num">' + fmtCAD0(h.comp4) + (h.comp4Flag ? '<br><span class="flag">' + h.comp4Flag + '</span>' : '') + '</td><td>' + h.rooms + '</td><td>' + dots(h.beach) + '<div class="score-note">' + h.beachNote + '</div></td><td>' + dots(h.walk) + '<div class="score-note">' + h.walkNote + '</div></td><td class="num">' + (h.drive === 0 ? "Walkable" : h.drive + " min") + '</td><td class="num">' + h.san + ' min</td><td><span class="drive-total">' + fmtDur(h.tripDrive) + '</span><div class="drive-note">' + (extra === 0 ? "Least driving of the eleven" : "+" + fmtDur(extra) + " vs best") + '</div></td><td><span class="fit ' + fc + '">' + h.fitGrade + ' · ' + h.fit + '/5</span><div class="fit-note">' + h.fitNote + '</div></td></tr>'; }).join(""); document.querySelectorAll("th").forEach(th => { const active = th.dataset.col === state.col; th.classList.toggle("sorted", active); th.querySelector(".dir").textContent = active ? "\u25B2\u25BC"[state.asc ? 0 : 1] : ""; }); document.getElementById("sortLabel").textContent = COLS[state.col].label + ", " + (state.asc ? "low \u2192 high" : "high \u2192 low"); }
+
+function renderWeather() { document.getElementById("weatherPanel").innerHTML = WEATHER.map(w => '<div class="weather-item"><div class="weather-icon">' + w.icon + '</div><div class="weather-text"><div class="weather-day">' + w.day + '</div><div class="weather-detail">' + w.high + '°–' + w.low + '° · ' + w.note + '</div></div></div>').join(''); }
+
+const LON0 = -117.315, LON1 = -117.095, LAT0 = 32.598, LAT1 = 32.985;
+const W = 560, H = 920, PAD = 14;
+const px = lon => PAD + (lon - LON0) / (LON1 - LON0) * (W - 2 * PAD);
+const py = lat => PAD + (LAT1 - lat) / (LAT1 - LAT0) * (H - 2 * PAD);
+const pt = (lat, lon) => px(lon).toFixed(1) + "," + py(lat).toFixed(1);
+
+function coastPath() { const c = [[32.985,-117.272],[32.955,-117.267],[32.930,-117.259],[32.905,-117.253],[32.875,-117.252],[32.858,-117.256],[32.851,-117.274],[32.845,-117.284],[32.832,-117.281],[32.812,-117.272],[32.796,-117.256],[32.775,-117.253],[32.755,-117.252],[32.740,-117.253],[32.715,-117.257],[32.688,-117.252],[32.665,-117.242]]; let d = "M " + pt(c[0][0], c[0][1]); for (let i = 1; i < c.length; i++) d += " L " + pt(c[i][0], c[i][1]); d += " L " + px(LON1) + "," + py(32.60) + " L " + px(LON1) + "," + py(LAT1) + " Z"; return d; }
+function bayPath() { const b = [[32.712,-117.235],[32.720,-117.200],[32.722,-117.172],[32.700,-117.152],[32.660,-117.126],[32.622,-117.108],[32.612,-117.128],[32.640,-117.150],[32.672,-117.185],[32.686,-117.215],[32.700,-117.232]]; let d = "M " + pt(b[0][0], b[0][1]); for (let i = 1; i < b.length; i++) d += " L " + pt(b[i][0], b[i][1]); return d + " Z"; }
+function missionBayPath() { const m = [[32.795,-117.245],[32.792,-117.222],[32.775,-117.212],[32.760,-117.222],[32.758,-117.244],[32.775,-117.250]]; let d = "M " + pt(m[0][0], m[0][1]); for (let i = 1; i < m.length; i++) d += " L " + pt(m[i][0], m[i][1]); return d + " Z"; }
+
+function renderMap() { const list = sortedFiltered(); const idx = h => HOTELS.indexOf(h) + 1; let s = ""; s += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="var(--ocean)" rx="8"/>'; s += '<path d="' + coastPath() + '" fill="var(--land)" stroke="#b9c9ce" stroke-width="1.5"/>'; s += '<path d="' + bayPath() + '" fill="var(--ocean)" stroke="#b9c9ce" stroke-width="1"/>'; s += '<path d="' + missionBayPath() + '" fill="var(--ocean)" stroke="#b9c9ce" stroke-width="1"/>'; s += '<text x="60" y="480" fill="#5d8a97" font-size="15" font-style="italic" font-family="Georgia,serif" transform="rotate(-72 60 480)" letter-spacing="4">PACIFIC OCEAN</text>'; s += '<text x="' + px(-117.135) + '" y="' + py(32.665) + '" fill="#5d8a97" font-size="10" font-style="italic" font-family="Georgia,serif">San Diego Bay</text>'; s += '<text x="' + px(-117.243) + '" y="' + py(32.777) + '" fill="#5d8a97" font-size="9" font-style="italic" font-family="Georgia,serif">Mission Bay</text>'; STOPS.forEach(t => { const x = px(t.lon), y = py(t.lat); s += '<path d="M ' + x + ' ' + (y - 6) + ' L ' + (x + 6) + ' ' + y + ' L ' + x + ' ' + (y + 6) + ' L ' + (x - 6) + ' ' + y + ' Z" fill="#093f4b"/>'; s += '<text x="' + (x + 10) + '" y="' + (y + t.dy / 2 + 3) + '" fill="#093f4b" font-size="10.5" font-weight="600" font-family="inherit">' + t.n + '</text>'; }); list.forEach(h => { const x = px(h.lon), y = py(h.lat), n = idx(h), col = FITCOL[h.fitGrade]; s += '<a href="' + gmb(h.gq) + '" target="_blank" rel="noopener"><g class="pin" data-i="' + n + '" style="cursor:pointer;"><circle cx="' + x + '" cy="' + y + '" r="13" fill="' + col + '" stroke="#ffffff" stroke-width="2.5"/><text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle" fill="#fff" font-size="12" font-weight="700" font-family="inherit">' + n + '</text><title>' + h.name + ' — ' + fmtDur(h.tripDrive) + ' trip driving</title></g></a>'; }); document.getElementById("coast").innerHTML = s; document.getElementById("mapList").innerHTML = list.map(h => { const n = idx(h); return '<div class="map-item" data-i="' + n + '"><span class="pin-chip" style="background:' + FITCOL[h.fitGrade] + '">' + n + '</span><div><div class="mi-name"><a href="' + gmb(h.gq) + '" target="_blank" rel="noopener">' + h.name + ' &#8599;</a></div><div class="mi-sub">' + fmtCAD0(h.comp4) + ' 4-nt equiv. · ' + fmtDur(h.tripDrive) + ' trip driving · fit ' + h.fitGrade + '</div></div></div>'; }).join(""); document.querySelectorAll(".map-item").forEach(item => { item.addEventListener("mouseenter", () => hi(item.dataset.i, true)); item.addEventListener("mouseleave", () => hi(item.dataset.i, false)); }); function hi(i, on) { document.querySelectorAll('#coast .pin[data-i="' + i + '"] circle').forEach(c => { c.setAttribute("r", on ? 17 : 13); c.setAttribute("stroke", on ? "#093f4b" : "#ffffff"); }); } }
+
+function renderAll() { renderTable(); renderMap(); }
+
+let resizing = false;
+function initResizers() { const table = document.getElementById("grid"); const ths = table.querySelectorAll("th"); ths.forEach(th => { th.style.width = th.offsetWidth + "px"; }); table.style.width = table.offsetWidth + "px"; table.style.tableLayout = "fixed"; table.style.minWidth = "0"; ths.forEach(th => { const rz = document.createElement("span"); rz.className = "rz"; rz.title = "Drag to resize column"; th.appendChild(rz); rz.addEventListener("click", e => e.stopPropagation()); rz.addEventListener("mousedown", e => { e.preventDefault(); e.stopPropagation(); resizing = true; rz.classList.add("dragging"); const startX = e.pageX; const startW = th.offsetWidth; const tableW = table.offsetWidth; const move = ev => { const w = Math.max(70, startW + ev.pageX - startX); th.style.width = w + "px"; table.style.width = (tableW + (w - startW)) + "px"; }; const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); rz.classList.remove("dragging"); setTimeout(() => { resizing = false; }, 50); }; document.addEventListener("mousemove", move); document.addEventListener("mouseup", up); }); }); }
+
+document.querySelectorAll("th").forEach(th => { th.addEventListener("click", () => { if (resizing) return; const col = th.dataset.col; if (state.col === col) state.asc = !state.asc; else { state.col = col; state.asc = true; } renderAll(); }); });
+document.querySelectorAll(".chip").forEach(chip => { chip.addEventListener("click", () => { document.querySelectorAll(".chip").forEach(c => c.classList.remove("active")); chip.classList.add("active"); state.filter = chip.dataset.filter; renderAll(); }); });
+const btnT = document.getElementById("btnTable"), btnM = document.getElementById("btnMap");
+function setView(map) { document.getElementById("tableView").style.display = map ? "none" : "block"; document.getElementById("mapView").style.display = map ? "block" : "none"; document.getElementById("sidebarView").style.display = map ? "none" : "flex"; btnT.classList.toggle("active", !map); btnM.classList.toggle("active", map); }
+btnT.addEventListener("click", () => setView(false));
+btnM.addEventListener("click", () => setView(true));
+
+db.ref('starred').on('value', snap => { state.starred = snap.val() || []; renderTable(); });
+db.ref('notes').on('value', snap => { const notes = snap.val() || {}; Object.keys(notes).forEach(key => { const hotelName = key.replace(/_/g, ' '); state.notes[hotelName] = notes[key]; }); if (state.currentHotel) { document.getElementById("notesInput").value = state.notes[state.currentHotel] || ''; } });
+
+renderAll();
+initResizers();
+renderWeather();
+selectHotel(HOTELS[0].name);
+</script>
+</body>
+</html>
+HTMLEOF
+
+firebase deploy --only hosting
+cat > firebase.json << 'EOF'
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      ".gitignore",
+      "README.md"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
+EOF
+
+firebase deploy --only hosting
+cat > public/index.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>San Diego hotel comparison — Aug 3–7, 2026</title>
+<style>
+  :root {
+    --ink: #10232e; --ink-soft: #4a616e; --ink-faint: #7d919c;
+    --paper: #f7f9fa; --card: #ffffff; --line: #dde5e9;
+    --sea: #0e5e6f; --sea-deep: #093f4b; --kelp: #1d7a5f;
+    --sand: #b98a45; --coral: #b0532e; --wash: #e8f1f3;
+    --ocean: #cfe4ea; --land: #f4f1e7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.5; padding: 24px 20px 44px;
+  }
+  header { margin: 0 0 16px; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sea); font-weight: 600; margin: 0 0 6px; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; font-size: 28px; margin: 0 0 4px; color: var(--sea-deep); }
+  .sub { color: var(--ink-soft); margin: 0; max-width: 900px; }
+  .controls { margin: 16px 0 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .hint { color: var(--ink-faint); font-size: 12.5px; margin-left: auto; }
+  .chip, .viewbtn { border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .chip.active { background: var(--sea); border-color: var(--sea); color: #fff; }
+  .viewtoggle { display: inline-flex; border: 1px solid var(--sea); border-radius: 999px; overflow: hidden; margin-right: 6px; }
+  .viewbtn { border: none; border-radius: 0; padding: 7px 18px; font-weight: 600; }
+  .viewbtn.active { background: var(--sea); color: #fff; }
+  .sidebar-wrap { display: grid; grid-template-columns: 1fr 320px; gap: 16px; margin-top: 20px; }
+  @media (max-width: 1200px) { .sidebar-wrap { grid-template-columns: 1fr; } }
+  .table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 1250px; }
+  th { position: sticky; top: 0; background: var(--sea-deep); color: #dcebef; text-align: left; padding: 12px 14px; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap; }
+  th:hover { background: var(--sea); color: #fff; }
+  th .dir { display: inline-block; width: 12px; opacity: 0.9; }
+  th.sorted { color: #fff; box-shadow: inset 0 -3px 0 var(--sand); }
+  td { padding: 13px 14px; border-top: 1px solid var(--line); vertical-align: top; font-size: 13.5px; }
+  tbody tr:hover { background: var(--wash); }
+  tr.new-row td { background: #fdf8ee; }
+  .hotel-name { font-weight: 600; font-size: 14.5px; }
+  .hotel-name a { color: var(--sea-deep); text-decoration: none; border-bottom: 1px dashed #9fbec7; }
+  .hotel-name a:hover { color: var(--sea); border-bottom-style: solid; }
+  .ext { font-size: 11px; color: var(--ink-faint); margin-left: 3px; }
+  .hotel-area { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+  .new-badge { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #fff; background: var(--sand); border-radius: 3px; padding: 2px 5px; vertical-align: 2px; }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .total { font-weight: 700; color: var(--sea-deep); font-size: 15px; }
+  .flag { display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 600; color: var(--coral); background: #f7e8e1; border-radius: 4px; padding: 2px 6px; }
+  .dots { letter-spacing: 2px; font-size: 13px; white-space: nowrap; }
+  .dots .on { color: var(--sea); }
+  .dots .off { color: var(--line); }
+  .score-note { font-size: 12px; color: var(--ink-soft); margin-top: 3px; max-width: 220px; }
+  .drive-total { font-weight: 700; color: var(--sea-deep); white-space: nowrap; }
+  .drive-note { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+  .fit { display: inline-block; font-weight: 700; font-size: 12px; border-radius: 4px; padding: 3px 8px; white-space: nowrap; }
+  .fit-a { background: #e2f1ea; color: var(--kelp); }
+  .fit-b { background: #f4edda; color: #8a6524; }
+  .fit-c { background: #f7e8e1; color: var(--coral); }
+  .fit-note { font-size: 12px; color: var(--ink-soft); margin-top: 3px; max-width: 240px; }
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .sidebar-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .sidebar-title { font-weight: 600; font-size: 13px; color: var(--sea-deep); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .weather-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .weather-icon { font-size: 20px; flex: none; }
+  .weather-text { flex: 1; }
+  .weather-day { font-weight: 500; font-size: 13px; }
+  .weather-detail { font-size: 12px; color: var(--ink-soft); }
+  .note-input { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 8px; font-family: inherit; font-size: 12px; resize: vertical; min-height: 70px; }
+  .note-input:focus { outline: none; border-color: var(--sea); box-shadow: 0 0 0 2px rgba(14,94,111,0.1); }
+  .save-btn { background: var(--sea); color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; width: 100%; }
+  .save-btn:hover { background: var(--sea-deep); }
+  .star-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 0; line-height: 1; }
+  .star-btn.starred { color: var(--sand); }
+  .parking-item { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .parking-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .parking-label { color: var(--ink-soft); }
+  .parking-cost { font-weight: 600; color: var(--sea-deep); }
+  .nearby-list { font-size: 12px; line-height: 1.6; }
+  .nearby-item { margin-bottom: 4px; color: var(--ink-soft); }
+  .sync-status { font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+  footer { margin: 14px 0 0; color: var(--ink-faint); font-size: 12px; }
+  #mapView { display: none; }
+  .map-layout { display: grid; grid-template-columns: minmax(340px, 1.15fr) minmax(280px, 0.85fr); gap: 16px; align-items: start; }
+  .map-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .map-card svg { width: 100%; height: auto; display: block; }
+  .map-list { display: flex; flex-direction: column; gap: 8px; }
+  .map-item { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .map-item:hover { border-color: var(--sea); background: var(--wash); }
+  .pin-chip { flex: none; width: 24px; height: 24px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+  .map-item .mi-name { font-weight: 600; font-size: 13.5px; }
+  .map-item .mi-name a { color: var(--sea-deep); text-decoration: none; }
+  .map-item .mi-name a:hover { color: var(--sea); text-decoration: underline; }
+  .map-item .mi-sub { font-size: 12px; color: var(--ink-soft); }
+  .legend { font-size: 12px; color: var(--ink-soft); display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 4px 2px; }
+  .lg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  @media (max-width: 900px) { .map-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) { body { padding: 16px 10px 36px; } h1 { font-size: 22px; } .sidebar-wrap { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">San Diego · Mon Aug 3 – Fri Aug 7, 2026</p>
+  <h1>Hotel comparison board</h1>
+  <p class="sub">Eleven options synced across your devices via Firebase. Click to add notes and favorite hotels. Your data updates in real-time on any device or browser. Hotel names open Google Maps.</p>
+</header>
+
+<div class="controls">
+  <span class="viewtoggle">
+    <button class="viewbtn active" id="btnTable">Table</button>
+    <button class="viewbtn" id="btnMap">Coast map</button>
+  </span>
+  <button class="chip active" data-filter="all">All 11 hotels</button>
+  <button class="chip" data-filter="walkable">Walkable to dining</button>
+  <button class="chip" data-filter="beachfront">Direct beachfront</button>
+  <button class="chip" data-filter="under4k">Under $4,000 CAD</button>
+  <button class="chip" data-filter="starred">★ Favorites</button>
+  <span class="hint" id="hintWrap">Sorting by: <strong id="sortLabel">Total cost, low → high</strong></span>
+</div>
+
+<div class="sidebar-wrap">
+<div id="tableView">
+  <div class="table-wrap">
+  <table id="grid">
+    <thead>
+      <tr>
+        <th data-col="name" style="width:200px">Hotel <span class="dir"></span></th>
+        <th data-col="total">Total (CAD) <span class="dir"></span></th>
+        <th data-col="nights">Nights <span class="dir"></span></th>
+        <th data-col="pernight">Per night <span class="dir"></span></th>
+        <th data-col="comp4">4-night equiv. <span class="dir"></span></th>
+        <th data-col="rooms">Rooms &amp; beds <span class="dir"></span></th>
+        <th data-col="beach">Beach access <span class="dir"></span></th>
+        <th data-col="walk">Walkability <span class="dir"></span></th>
+        <th data-col="drive">Drive to La Jolla <span class="dir"></span></th>
+        <th data-col="san">Drive to SAN <span class="dir"></span></th>
+        <th data-col="tripdrive">Trip driving <span class="dir"></span></th>
+        <th data-col="fit">Itinerary fit <span class="dir"></span></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  </div>
+</div>
+
+<div id="mapView">
+  <div class="legend">
+    <span><span class="lg-dot" style="background:#1d7a5f"></span>A fit — walk your plan</span>
+    <span><span class="lg-dot" style="background:#b98a45"></span>B fit — short drives</span>
+    <span><span class="lg-dot" style="background:#b0532e"></span>C fit — long hauls</span>
+  </div>
+  <div class="map-layout">
+    <div class="map-card"><svg id="coast" viewBox="0 0 560 920"></svg></div>
+    <div class="map-list" id="mapList"></div>
+  </div>
+</div>
+
+<div id="sidebarView" class="sidebar">
+  <div class="sidebar-card">
+    <p class="sidebar-title">📍 Aug 3–7 Weather</p>
+    <div id="weatherPanel"></div>
+  </div>
+  
+  <div class="sidebar-card">
+    <p class="sidebar-title">🅿️ Parking Estimates</p>
+    <div id="parkingPanel"></div>
+  </div>
+  
+  <div class="sidebar-card">
+    <p class="sidebar-title">🗺️ Nearby from Selected</p>
+    <div id="nearbyPanel" class="nearby-list">
+      <p style="color: var(--ink-faint); font-size: 12px;">Click a hotel row to see nearby attractions</p>
+    </div>
+  </div>
+  
+  <div class="sidebar-card">
+    <p class="sidebar-title">📝 Personal Notes</p>
+    <textarea id="notesInput" class="note-input" placeholder="Add thoughts on the selected hotel..."></textarea>
+    <button class="save-btn" id="saveBtn">Save Note</button>
+    <div class="sync-status" id="syncStatus">💾 Ready</div>
+  </div>
+</div>
+</div>
+
+<footer>Data syncs across devices via Firebase. Parking is daily valet/self-serve estimate × 4 nights. Nearby attractions are walkable or a short drive from each hotel. Verify live rates and availability before booking.</footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD2kZ1NZkIxleu7b53xCdi2ozqP05b94X4",
+  authDomain: "san-diego-hotels.firebaseapp.com",
+  databaseURL: "https://san-diego-hotels-default-rtdb.firebaseio.com",
+  projectId: "san-diego-hotels",
+  storageBucket: "san-diego-hotels.firebasestorage.app",
+  messagingSenderId: "882417418834",
+  appId: "1:882417418834:web:e0f251b3a53f2ccc24d58b"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const HOTELS = [
+  { name: "Grande Colonial La Jolla", area: "La Jolla Village core", total: 2433.60, nights: 3, comp4: 3245, comp4Flag: "Quoted 3 nts — trip is 4", rooms: "1 room · standard layout", roomsSort: "1 room", beach: 3, beachNote: "Rocky Cove steps away; 5-min drive to sandy Shores", walk: 5, walkNote: "Heart of the village — restaurants and shops at the door", drive: 0, san: 20, tripDrive: 100, parking: 0, parkingNote: "Valet available on-site (est. $60/nt)", nearby: ["Duke's La Jolla (oceanfront dining, walkable)", "Birch Aquarium (5 min drive)", "Torrey Pines (15 min)"], fit: 5, fitGrade: "A", fitNote: "Walk to Mon & Thu dinners, Cove, and shopping; only Zoo day needs the car", walkable: true, beachfront: false, isNew: false, lat: 32.8455, lon: -117.2765, gq: "Grande Colonial Hotel La Jolla" },
+  { name: "Sheraton La Jolla Hotel", area: "Inland, near UCSD", total: 2912.00, nights: 4, comp4: 2912, comp4Flag: null, rooms: "1-bed suite (572 sq ft) · 2 queens + sofa bed", roomsSort: "1-bed suite", beach: 1, beachNote: "No access — drive down the hill to any sand", walk: 1, walkNote: "Not walkable; car needed for every meal", drive: 7, san: 20, tripDrive: 140, parking: 0, parkingNote: "Free self-parking on-site", nearby: ["Torrey Pines (10 min drive)", "UCSD campus (adjacent)", "Del Mar farmer's market (15 min)"], fit: 2, fitGrade: "C", fitNote: "Cheapest true 4-night rate, but you'd drive to every single itinerary stop", walkable: false, beachfront: false, isNew: false, lat: 32.8697, lon: -117.2260, gq: "Sheraton La Jolla Hotel" },
+  { name: "Bahia Resort Hotel", area: "Mission Bay peninsula", total: 3427.58, nights: 4, comp4: 3427.58, comp4Flag: "Incl. $717 taxes/fees · Stay Longer rate", rooms: "Junior suite · 2 queens (2 adults + 3 kids)", roomsSort: "1-bed suite", beach: 4, beachNote: "Calm bay sand on-site; 5–10 min walk across to Mission Beach ocean surf", walk: 3, walkNote: "Walk to Mission Beach boardwalk and Belmont Park eats — casual strip, not a village", drive: 15, san: 13, tripDrive: 175, parking: 20, parkingNote: "Valet parking available (est. $5/nt)", nearby: ["Belmont Park (walkable)", "Mission Beach Boardwalk (10 min walk)", "Pacific Beach (5 min drive)"], fit: 3, fitGrade: "B", fitNote: "Best price for a party of 5 with a real beach, but La Jolla anchors and dinners all need the car", walkable: true, beachfront: true, isNew: false, lat: 32.7758, lon: -117.2478, gq: "Bahia Resort Hotel San Diego" },
+  { name: "Scripps Inn La Jolla Cove", area: "La Jolla Cove cliffs", total: 3462.00, nights: 4, comp4: 3462, comp4Flag: null, rooms: "2-bed suite (600 sq ft) · 2 queens", roomsSort: "2-bed suite", beach: 3, beachNote: "On the Cove cliffs — sea lions out the window; 5-min drive for wide sand", walk: 5, walkNote: "On the coastal cliff path, steps to village core", drive: 0, san: 20, tripDrive: 100, parking: 0, parkingNote: "Valet parking available on-site", nearby: ["La Jolla Cove (walkable sea lions)", "Birch Aquarium (10 min walk)", "George's at the Cove (dining, walkable)"], fit: 5, fitGrade: "A", fitNote: "Same village-core logistics as Grande Colonial, with more space and true 4-night pricing", walkable: true, beachfront: false, isNew: false, lat: 32.8468, lon: -117.2788, gq: "Scripps Inn La Jolla" },
+  { name: "Coronado Island Marriott Resort & Spa", area: "Coronado Island (south)", total: 2729.45, nights: 4, comp4: 2729.45, comp4Flag: "USD $2,007 · Member rate", rooms: "Guest room · 2 doubles + sofa bed (2 adults + 3 kids)", roomsSort: "1 room", beach: 4, beachNote: "Not beachfront, but close to Coronado Beach; 5-min walk to sand", walk: 2, walkNote: "Isolated resort setting; 1–2 mi drive to Coronado Village shops and dining", drive: 30, san: 12, tripDrive: 315, parking: 20, parkingNote: "Valet & self-parking available (est. $5/nt)", nearby: ["Coronado Beach (5 min walk)", "Hotel del Coronado (10 min walk)", "Coronado Village (1.5 mi drive)"], fit: 2, fitGrade: "C", fitNote: "Sleeps 5 affordably and airport is close, but 30+ min from La Jolla anchor days adds 3+ hours to the week", walkable: false, beachfront: false, isNew: true, lat: 32.6770, lon: -117.1800, gq: "Coronado Island Marriott Resort and Spa" },
+  { name: "Loews Coronado Bay Resort", area: "Coronado peninsula (south)", total: 3961.34, nights: 4, comp4: 3961.34, comp4Flag: "USD $2,798 · 2 rooms", rooms: "2 rooms · standard resort", roomsSort: "2 rooms", beach: 3, beachNote: "Calm bay marina; ocean surf via pedestrian tunnel", walk: 1, walkNote: "Isolated — 5–6 mi drive to Coronado Village", drive: 35, san: 18, tripDrive: 350, parking: 40, parkingNote: "Valet parking (est. $10/nt)", nearby: ["Coronado Beach (0.5 mi drive)", "Ferry Landing (walkable waterfront)", "Silver Strand Beach (15 min drive)"], fit: 1, fitGrade: "C", fitNote: "35+ min from every La Jolla anchor on your plan; adds an hour-plus of driving most days", walkable: false, beachfront: false, isNew: false, lat: 32.6262, lon: -117.1319, gq: "Loews Coronado Bay Resort" },
+  { name: "L'Auberge Del Mar", area: "Del Mar Village center", total: 5129.52, nights: 4, comp4: 5129.52, comp4Flag: "Incl. $973 taxes/fees · flexible rate", rooms: "Village room · 2 double beds (2 adults + 2 kids)", roomsSort: "1 room", beach: 4, beachNote: "Not on the sand, but a 2–3 min walk across the street down to Del Mar beach", walk: 5, walkNote: "Heart of Del Mar Village — shops and restaurants out the front door", drive: 15, san: 25, tripDrive: 195, parking: 0, parkingNote: "Complimentary self-parking on-site", nearby: ["Del Mar Beach (2 min walk)", "Del Mar Farmers Market (Wed, walkable)", "Torrey Pines Reserve (10 min drive)"], fit: 3, fitGrade: "B", fitNote: "Best village feel outside La Jolla and 10 min to Torrey Pines, but La Jolla days and the Zoo all need the car", walkable: true, beachfront: false, isNew: false, lat: 32.9576, lon: -117.2650, gq: "L'Auberge Del Mar" },
+  { name: "Paradise Point Resort & Spa", area: "Mission Bay island", total: 5482.60, nights: 4, comp4: 5482.60, comp4Flag: "USD $3,873 · 2 rooms", rooms: "2 rooms · private bungalows", roomsSort: "2 rooms", beach: 4, beachNote: "Direct calm bay sand, mile of shoreline — no ocean waves", walk: 1, walkNote: "Own island; bridge crossing by car for anything off-property", drive: 15, san: 13, tripDrive: 170, parking: 0, parkingNote: "Complimentary parking on-site", nearby: ["Mission Bay lagoon (on property)", "Belmont Park (5 min drive)", "SeaWorld San Diego (1 mi drive)"], fit: 3, fitGrade: "B", fitNote: "Great resort downtime and close-ish to the Zoo, but every La Jolla day starts with a drive", walkable: false, beachfront: true, isNew: false, lat: 32.7794, lon: -117.2417, gq: "Paradise Point Resort and Spa San Diego" },
+  { name: "The Wayfarer San Diego", area: "Pacific Beach boardwalk", total: 5486.00, nights: 4, comp4: 5486, comp4Flag: "Premium sale rate", rooms: "1-bed premium suite · 2 queens + balcony", roomsSort: "1-bed suite", beach: 5, beachNote: "Directly on Pacific Beach sand — swimming waves outside", walk: 4, walkNote: "Lively boardwalk; dozens of casual taco shops and bars", drive: 12, san: 15, tripDrive: 155, parking: 60, parkingNote: "Valet parking (est. $15/nt)", nearby: ["Pacific Beach Boardwalk (on doorstep)", "Crystal Pier (walkable)", "Catania Pizzeria (walkable)"], fit: 3, fitGrade: "B", fitNote: "Fantastic beach base, but 12 min from La Jolla means driving to most planned stops", walkable: true, beachfront: true, isNew: false, lat: 32.8020, lon: -117.2565, gq: "The Wayfarer San Diego Pacific Beach" },
+  { name: "Del Mar Beach Hotel", area: "Del Mar City Beach", total: 6377.44, nights: 4, comp4: 6377.44, comp4Flag: "2 rooms total", rooms: "2 rooms · fully renovated", roomsSort: "2 rooms", beach: 5, beachNote: "On pristine, wide Del Mar sand with great swimming", walk: 4, walkNote: "Flat 5-min stroll into upscale Del Mar Village", drive: 15, san: 25, tripDrive: 195, parking: 0, parkingNote: "Complimentary self-parking on-site", nearby: ["Del Mar Beach (on doorstep)", "Del Mar farmer's market (walkable)", "Torrey Pines (10 min drive)"], fit: 3, fitGrade: "B", fitNote: "Lovely and close to Torrey Pines, but south-facing days (Zoo, airport) get longer", walkable: true, beachfront: true, isNew: false, lat: 32.9532, lon: -117.2686, gq: "Del Mar Beach Hotel" },
+  { name: "Hotel del Coronado", area: "Coronado Beach / Orange Ave", total: 10073.18, nights: 4, comp4: 10073.18, comp4Flag: "2 rooms total", rooms: "2 rooms · grand historic resort", roomsSort: "2 rooms", beach: 5, beachNote: "World-class wide white-sand Coronado Beach", walk: 5, walkNote: "Foot of Orange Avenue boutiques and dining", drive: 30, san: 12, tripDrive: 295, parking: 80, parkingNote: "Valet parking (est. $20/nt)", nearby: ["Coronado Beach (on doorstep)", "Orange Avenue dining (walkable)", "Ferry Landing (walkable)"], fit: 2, fitGrade: "C", fitNote: "Iconic, but wrong side of the bay for a La Jolla-anchored week — and 4x the cheapest option", walkable: true, beachfront: true, isNew: false, lat: 32.6810, lon: -117.1784, gq: "Hotel del Coronado" }
+];
+
+const WEATHER = [ { day: "Mon Aug 3", high: 76, low: 68, icon: "☀️", note: "Sunny, perfect beach" }, { day: "Tue Aug 4", high: 75, low: 67, icon: "☀️", note: "Sunny, light breeze" }, { day: "Wed Aug 5", high: 74, low: 66, icon: "⛅", note: "Partly cloudy" }, { day: "Thu Aug 6", high: 75, low: 67, icon: "☀️", note: "Sunny, possible marine layer AM" }, { day: "Fri Aug 7", high: 74, low: 66, icon: "☀️", note: "Sunny, warming by noon" } ];
+
+const FITCOL = { A: "#1d7a5f", B: "#b98a45", C: "#b0532e" };
+const gmb = q => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+const fmtCAD = n => "$" + n.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtCAD0 = n => "$" + Math.round(n).toLocaleString("en-CA");
+const fmtDur = m => { const h = Math.floor(m / 60), r = m % 60; return h ? h + " h" + (r ? " " + r + " m" : "") : r + " min"; };
+const dots = v => { let s = ""; for (let i = 1; i <= 5; i++) s += '<span class="' + (i <= v ? "on" : "off") + '">●</span>'; return '<span class="dots">' + s + '</span>'; };
+
+let state = { col: "total", asc: true, filter: "all", starred: [], currentHotel: null, notes: {} };
+
+const COLS = { name: { get: h => h.name, label: "Hotel name" }, total: { get: h => h.total, label: "Total cost" }, nights: { get: h => h.nights, label: "Nights" }, pernight: { get: h => h.total / h.nights, label: "Per-night cost" }, comp4: { get: h => h.comp4, label: "4-night equivalent" }, rooms: { get: h => h.roomsSort, label: "Rooms" }, beach: { get: h => h.beach, label: "Beach access" }, walk: { get: h => h.walk, label: "Walkability" }, drive: { get: h => h.drive, label: "Drive to La Jolla" }, san: { get: h => h.san, label: "Drive to SAN" }, tripdrive: { get: h => h.tripDrive, label: "Trip driving total" }, fit: { get: h => h.fit, label: "Itinerary fit" } };
+
+function passesFilter(h) { if (state.filter === "walkable") return h.walkable; if (state.filter === "beachfront") return h.beachfront; if (state.filter === "under4k") return h.comp4 < 4000; if (state.filter === "starred") return state.starred.includes(h.name); return true; }
+
+function sortedFiltered() { return HOTELS.filter(passesFilter).slice().sort((a, b) => { const va = COLS[state.col].get(a), vb = COLS[state.col].get(b); const cmp = (typeof va === "number") ? va - vb : String(va).localeCompare(String(vb)); return state.asc ? cmp : -cmp; }); }
+
+function toggleStar(name, e) { e.stopPropagation(); const idx = state.starred.indexOf(name); if (idx > -1) state.starred.splice(idx, 1); else state.starred.push(name); db.ref('starred').set(state.starred); renderTable(); }
+
+function selectHotel(name) { state.currentHotel = name; const h = HOTELS.find(x => x.name === name); if (h) { document.getElementById("parkingPanel").innerHTML = '<div class="parking-item"><span class="parking-label">Valet/Self</span><span class="parking-cost">' + (h.parking === 0 ? 'Free' : '$' + (h.parking * 4)) + '</span></div><div class="parking-item"><span class="parking-label" style="font-size: 11px; color: var(--ink-faint);">' + h.parkingNote + '</span></div>'; document.getElementById("nearbyPanel").innerHTML = '<div class="nearby-list">' + h.nearby.map(n => '<div class="nearby-item">🗺️ ' + n + '</div>').join('') + '</div>'; document.getElementById("notesInput").value = state.notes[name] || ''; } }
+
+function saveNote() { if (state.currentHotel) { const note = document.getElementById("notesInput").value; state.notes[state.currentHotel] = note; const btn = document.getElementById("saveBtn"); btn.style.background = '#999'; btn.textContent = "Saving..."; db.ref('notes/' + state.currentHotel.replace(/[^a-zA-Z0-9]/g, '_')).set(note, err => { btn.style.background = ''; btn.textContent = "Save Note"; document.getElementById("syncStatus").textContent = err ? "❌ Error" : "✓ Synced"; setTimeout(() => { document.getElementById("syncStatus").textContent = "💾 Ready"; }, 2000); }); } }
+
+function renderTable() { const best = Math.min.apply(null, HOTELS.map(h => h.tripDrive)); document.getElementById("rows").innerHTML = sortedFiltered().map(h => { const fc = h.fitGrade === "A" ? "fit-a" : h.fitGrade === "B" ? "fit-b" : "fit-c"; const extra = h.tripDrive - best; const isStarred = state.starred.includes(h.name); return '<tr class="' + (h.isNew ? "new-row" : "") + '" onclick="selectHotel(\'' + h.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;"><td><button class="star-btn ' + (isStarred ? 'starred' : '') + '" onclick="toggleStar(\'' + h.name.replace(/'/g, "\\'") + '\', event)" title="favorite">★</button> <div class="hotel-name"><a href="' + gmb(h.gq) + '" target="_blank" rel="noopener">' + h.name + '</a><span class="ext">↗</span>' + (h.isNew ? '<span class="new-badge">NEW</span>' : '') + '</div><div class="hotel-area">' + h.area + '</div></td><td class="num total">' + fmtCAD(h.total) + '</td><td class="num">' + h.nights + '</td><td class="num">' + fmtCAD0(h.total / h.nights) + '</td><td class="num">' + fmtCAD0(h.comp4) + (h.comp4Flag ? '<br><span class="flag">' + h.comp4Flag + '</span>' : '') + '</td><td>' + h.rooms + '</td><td>' + dots(h.beach) + '<div class="score-note">' + h.beachNote + '</div></td><td>' + dots(h.walk) + '<div class="score-note">' + h.walkNote + '</div></td><td class="num">' + (h.drive === 0 ? "Walkable" : h.drive + " min") + '</td><td class="num">' + h.san + ' min</td><td><span class="drive-total">' + fmtDur(h.tripDrive) + '</span><div class="drive-note">' + (extra === 0 ? "Least driving" : "+" + fmtDur(extra)) + '</div></td><td><span class="fit ' + fc + '">' + h.fitGrade + ' · ' + h.fit + '/5</span><div class="fit-note">' + h.fitNote + '</div></td></tr>'; }).join(""); document.querySelectorAll("th").forEach(th => { const active = th.dataset.col === state.col; th.classList.toggle("sorted", active); th.querySelector(".dir").textContent = active ? (state.asc ? "▲" : "▼") : ""; }); document.getElementById("sortLabel").textContent = COLS[state.col].label + ", " + (state.asc ? "low → high" : "high → low"); }
+
+function renderWeather() { document.getElementById("weatherPanel").innerHTML = WEATHER.map(w => '<div class="weather-item"><div class="weather-icon">' + w.icon + '</div><div class="weather-text"><div class="weather-day">' + w.day + '</div><div class="weather-detail">' + w.high + '°–' + w.low + '° · ' + w.note + '</div></div></div>').join(''); }
+
+function renderAll() { renderTable(); renderWeather(); }
+
+document.querySelectorAll("th").forEach(th => { th.addEventListener("click", () => { const col = th.dataset.col; if (state.col === col) state.asc = !state.asc; else { state.col = col; state.asc = true; } renderAll(); }); });
+document.querySelectorAll(".chip").forEach(chip => { chip.addEventListener("click", () => { document.querySelectorAll(".chip").forEach(c => c.classList.remove("active")); chip.classList.add("active"); state.filter = chip.dataset.filter; renderAll(); }); });
+const btnT = document.getElementById("btnTable"), btnM = document.getElementById("btnMap");
+function setView(map) { document.getElementById("tableView").style.display = map ? "none" : "block"; document.getElementById("mapView").style.display = map ? "block" : "none"; document.getElementById("sidebarView").style.display = map ? "none" : "flex"; btnT.classList.toggle("active", !map); btnM.classList.toggle("active", map); }
+btnT.addEventListener("click", () => setView(false));
+btnM.addEventListener("click", () => setView(true));
+
+document.getElementById("saveBtn").addEventListener("click", saveNote);
+
+db.ref('starred').on('value', snap => { state.starred = snap.val() || []; renderTable(); });
+db.ref('notes').on('value', snap => { const notes = snap.val() || {}; Object.keys(notes).forEach(key => { state.notes[key.replace(/_/g, ' ')] = notes[key]; }); if (state.currentHotel) { document.getElementById("notesInput").value = state.notes[state.currentHotel] || ''; } });
+
+renderAll();
+renderWeather();
+selectHotel(HOTELS[0].name);
+</script>
+</body>
+</html>
+HTMLEOF
+
+firebase deploy --only hosting
+sed -i 's/firebase-app\.js/firebase-app-compat.js/; s/firebase-database\.js/firebase-database-compat.js/' public/index.html
+grep -n 'firebasejs' public/index.html
+firebase deploy --only hosting
+mkdir -p public
+cp ~/san-diego-hotel-comparison.html public/index.html
+firebase deploy --only hosting
+firebase login --reauth
+mkdir -p public
+cp ~/san-diego-hotel-comparison.html public/index.html
+firebase deploy --only hosting
+cat > firebase.json << 'EOF'
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      ".gitignore",
+      "README.md"
+    ]
+  }
+}
+EOF
+
+firebase deploy --only hosting
+cd ~
+pwd
+ls -la | grep -E "\.git|san-diego"
