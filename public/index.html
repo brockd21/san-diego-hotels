@@ -72,7 +72,7 @@
   .fit-b { background: #f4edda; color: #8a6524; }
   .fit-c { background: #f7e8e1; color: var(--coral); }
   .fit-note { font-size: 12px; color: var(--ink-soft); margin-top: 3px; max-width: 240px; }
-  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .sidebar { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 24px; height: fit-content; max-height: calc(100vh - 48px); overflow-y: auto; }
   .sidebar-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
   .sidebar-title { font-weight: 600; font-size: 13px; color: var(--sea-deep); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.05em; }
   .weather-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -110,7 +110,7 @@
   .lg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
   .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
   .modal.active { display: flex; }
-  .modal-content { background: var(--card); border-radius: 12px; padding: 24px; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .modal-content { background: var(--card); border-radius: 12px; padding: 24px; max-width: 700px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
   .modal-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; }
   .modal-title { font-size: 20px; font-weight: 600; color: var(--sea-deep); margin: 0; }
   .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--ink-soft); }
@@ -316,11 +316,13 @@ function saveNote() { if (state.currentHotel) { const note = document.getElement
 function openModal(hotelName) {
   const h = HOTELS.find(x => x.name === hotelName);
   if (!h) return;
+  selectHotel(hotelName);
   document.getElementById("modalTitle").textContent = h.name;
   let amenitiesHtml = Object.keys(h.amenities).map(a => {
     const labels = { pool: '🏊 Pool', gym: '💪 Gym', parking: '🅿️ Free Parking', courts: '🏐 Pickleball', beach: '🏖️ Beach' };
     return '<span class="amenity-badge ' + (h.amenities[a] ? '' : 'no') + '">' + labels[a] + '</span>';
   }).join('');
+  const weatherHtml = WEATHER.map(w => '<div class="weather-item"><div class="weather-icon">' + w.icon + '</div><div class="weather-text"><div class="weather-day">' + w.day + '</div><div class="weather-detail">' + w.high + '°–' + w.low + '° · ' + w.note + '</div></div></div>').join('');
   const body = `
     <div class="modal-section">
       <div class="modal-label">Cost</div>
@@ -356,9 +358,39 @@ function openModal(hotelName) {
         ${h.nearby.map(n => '<li>' + n + '</li>').join('')}
       </ul>
     </div>
+    <div class="modal-section">
+      <div class="modal-label">📍 Weather (Aug 3–7)</div>
+      <div>${weatherHtml}</div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">🅿️ Parking</div>
+      <div class="parking-item"><span class="parking-label">Valet/Self</span><span class="parking-cost">${h.parking === 0 ? 'Free' : '$' + (h.parking * 4)}</span></div>
+      <div class="parking-item"><span class="parking-label" style="font-size: 11px; color: var(--ink-faint);">${h.parkingNote}</span></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">📝 Notes</div>
+      <textarea id="modalNotesInput" class="note-input" placeholder="Add thoughts on this hotel..."></textarea>
+      <button class="save-btn" onclick="saveModalNote('${hotelName.replace(/'/g, "\\'")}')">Save Note</button>
+      <div class="sync-status" id="modalSyncStatus">💾 Ready</div>
+    </div>
   `;
   document.getElementById("modalBody").innerHTML = body;
+  document.getElementById("modalNotesInput").value = state.notes[hotelName] || '';
   document.getElementById("hotelModal").classList.add("active");
+}
+
+function saveModalNote(hotelName) {
+  const note = document.getElementById("modalNotesInput").value;
+  state.notes[hotelName] = note;
+  const btn = event.target;
+  btn.style.background = '#999';
+  btn.textContent = "Saving...";
+  db.ref('notes/' + hotelName.replace(/[^a-zA-Z0-9]/g, '_')).set(note, err => {
+    btn.style.background = '';
+    btn.textContent = "Save Note";
+    document.getElementById("modalSyncStatus").textContent = err ? "❌ Error" : "✓ Synced";
+    setTimeout(() => { document.getElementById("modalSyncStatus").textContent = "💾 Ready"; }, 2000);
+  });
 }
 
 function closeModal() {
