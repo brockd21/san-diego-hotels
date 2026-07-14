@@ -124,6 +124,12 @@
   .modal-section { margin-bottom: 16px; }
   @media (max-width: 1100px) { .modal-sections-grid { grid-template-columns: 1fr; } }
   @media (max-width: 768px) { .modal-sections-grid { grid-template-columns: 1fr; } }
+  .modal-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); margin: -24px -24px 0 -24px; }
+  .modal-tab { flex: 1; padding: 16px 20px; background: transparent; border: none; font-size: 13px; font-weight: 600; color: var(--ink-soft); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em; }
+  .modal-tab:hover { color: var(--sea-deep); }
+  .modal-tab.active { color: var(--sea-deep); border-bottom-color: var(--sea); }
+  .modal-tab-content { display: none; }
+  .modal-tab-content.active { display: block; }
   .modal-label { font-weight: 600; color: var(--sea-deep); font-size: 12px; text-transform: uppercase; margin-bottom: 6px; }
   .amenity-badge { display: inline-block; background: #e2f1ea; color: var(--kelp); padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-right: 6px; margin-bottom: 4px; }
   .modal-images { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
@@ -274,6 +280,20 @@ const HOTELS = [
 
 const WEATHER = [ { day: "Mon Aug 3", high: 24, low: 20, icon: "☀️", note: "Sunny, perfect beach" }, { day: "Tue Aug 4", high: 24, low: 19, icon: "☀️", note: "Sunny, light breeze" }, { day: "Wed Aug 5", high: 23, low: 19, icon: "⛅", note: "Partly cloudy" }, { day: "Thu Aug 6", high: 24, low: 19, icon: "☀️", note: "Sunny, possible marine layer AM" }, { day: "Fri Aug 7", high: 23, low: 19, icon: "☀️", note: "Sunny, warming by noon" } ];
 
+const PRICING_DATA = {
+  "Grande Colonial La Jolla": { bookingUrl: "https://www.booking.com/hotel/us/grande-colonial-la-jolla.html", hotelsUrl: "https://www.hotels.com/ho/164151/grande-colonial-la-jolla-la-jolla-california/", promoCodes: ["SUMMER20", "LAJOLLA15"], priceHistory: [2450, 2433, 2445, 2440, 2435], dealScore: 65, taxRate: 10.5, fees: 120 },
+  "Sheraton La Jolla Hotel": { bookingUrl: "https://www.booking.com/hotel/us/sheraton-la-jolla-hotel.html", hotelsUrl: "https://www.hotels.com/ho/113101/sheraton-la-jolla-hotel-la-jolla-california/", promoCodes: ["UCSD10", "SUMMER15"], priceHistory: [2950, 2912, 2925, 2905, 2890], dealScore: 72, taxRate: 10.5, fees: 145 },
+  "Bahia Resort Hotel": { bookingUrl: "https://www.booking.com/hotel/us/bahia-resort-hotel.html", hotelsUrl: "https://www.hotels.com/ho/117403/bahia-resort-hotel-san-diego-california/", promoCodes: ["FAMILY25", "MISSION20"], priceHistory: [3500, 3427, 3450, 3440, 3410], dealScore: 78, taxRate: 7.75, fees: 100 },
+  "Scripps Inn La Jolla Cove": { bookingUrl: "https://www.booking.com/hotel/us/scripps-inn-la-jolla-cove.html", hotelsUrl: "https://www.hotels.com/ho/119825/scripps-inn-la-jolla-cove-la-jolla-california/", promoCodes: ["COVE15", "LAJOLLA20"], priceHistory: [3500, 3462, 3480, 3455, 3445], dealScore: 55, taxRate: 10.5, fees: 135 },
+  "Coronado Island Marriott Resort & Spa": { bookingUrl: "https://www.booking.com/hotel/us/coronado-island-marriott-resort-spa.html", hotelsUrl: "https://www.hotels.com/ho/117404/coronado-island-marriott-resort-spa-coronado-california/", promoCodes: ["MEMBER15", "CORONADO10"], priceHistory: [2800, 2729, 2750, 2720, 2695], dealScore: 82, taxRate: 7.75, fees: 110 },
+  "Loews Coronado Bay Resort": { bookingUrl: "https://www.booking.com/hotel/us/loews-coronado-bay-resort.html", hotelsUrl: "https://www.hotels.com/ho/117405/loews-coronado-bay-resort-coronado-california/", promoCodes: ["BAY20", "LOEWS15"], priceHistory: [4050, 3961, 4000, 3980, 3950], dealScore: 48, taxRate: 7.75, fees: 165 },
+  "L'Auberge Del Mar": { bookingUrl: "https://www.booking.com/hotel/us/l-auberge-del-mar.html", hotelsUrl: "https://www.hotels.com/ho/117406/l-auberge-del-mar-del-mar-california/", promoCodes: ["DELMAR20", "VILLAGE15"], priceHistory: [5200, 5129, 5180, 5150, 5100], dealScore: 52, taxRate: 7.75, fees: 200 },
+  "Paradise Point Resort & Spa": { bookingUrl: "https://www.booking.com/hotel/us/paradise-point-resort-spa.html", hotelsUrl: "https://www.hotels.com/ho/117407/paradise-point-resort-spa-san-diego-california/", promoCodes: ["RESORT25", "PARADISE20"], priceHistory: [5550, 5482, 5520, 5500, 5450], dealScore: 61, taxRate: 7.75, fees: 175 },
+  "The Wayfarer San Diego": { bookingUrl: "https://www.booking.com/hotel/us/the-wayfarer-san-diego.html", hotelsUrl: "https://www.hotels.com/ho/117408/the-wayfarer-san-diego-pacific-beach-california/", promoCodes: ["BEACH20", "WAYFARER15"], priceHistory: [5550, 5486, 5510, 5495, 5470], dealScore: 68, taxRate: 7.75, fees: 190 },
+  "Del Mar Beach Hotel": { bookingUrl: "https://www.booking.com/hotel/us/del-mar-beach-hotel.html", hotelsUrl: "https://www.hotels.com/ho/117409/del-mar-beach-hotel-del-mar-california/", promoCodes: ["BEACH25", "DELMAR15"], priceHistory: [6450, 6377, 6410, 6390, 6350], dealScore: 59, taxRate: 7.75, fees: 210 },
+  "Hotel del Coronado": { bookingUrl: "https://www.booking.com/hotel/us/hotel-del-coronado.html", hotelsUrl: "https://www.hotels.com/ho/112513/hotel-del-coronado-coronado-california/", promoCodes: ["ICONIC15", "CORONADO10"], priceHistory: [10200, 10073, 10150, 10100, 10050], dealScore: 35, taxRate: 7.75, fees: 280 }
+};
+
 const FITCOL = { A: "#1d7a5f", B: "#b98a45", C: "#b0532e" };
 const gmb = q => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
 const fmtCAD = n => "$" + n.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -328,11 +348,12 @@ function openModal(hotelName) {
   if (!h) return;
   selectHotel(hotelName);
   document.getElementById("modalTitle").textContent = h.name;
+  
   let amenitiesHtml = Object.keys(h.amenities).map(a => {
     const labels = { pool: '🏊 Pool', gym: '💪 Gym', parking: '🅿️ Free Parking', courts: '🏐 Pickleball', beach: '🏖️ Beach' };
     return '<span class="amenity-badge ' + (h.amenities[a] ? '' : 'no') + '">' + labels[a] + '</span>';
   }).join('');
-  const weatherHtml = WEATHER.map(w => '<div class="weather-item"><div class="weather-icon">' + w.icon + '</div><div class="weather-text"><div class="weather-day">' + w.day + '</div><div class="weather-detail">' + w.high + '°–' + w.low + '° · ' + w.note + '</div></div></div>').join('');
+  
   const tripadvisorHtml = h.tripadvisor_rating ? `
     <div class="modal-section">
       <div class="modal-label">⭐ Reviews</div>
@@ -340,7 +361,8 @@ function openModal(hotelName) {
       <a href="${h.tripadvisor_url}" target="_blank" rel="noopener" style="display: inline-block; background: #003580; color: #fff; padding: 8px 12px; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: 600; margin-top: 6px;">View TripAdvisor Reviews →</a>
     </div>
   ` : '';
-  const body = `
+  
+  const detailsTab = `
     ${tripadvisorHtml}
     <div class="modal-sections-grid">
       <div class="modal-section">
@@ -379,10 +401,6 @@ function openModal(hotelName) {
       </div>
     </div>
     <div class="modal-section">
-      <div class="modal-label">📍 Weather (Aug 3–7)</div>
-      <div>${weatherHtml}</div>
-    </div>
-    <div class="modal-section">
       <div class="modal-label">🅿️ Parking</div>
       <div class="parking-item"><span class="parking-label">Valet/Self</span><span class="parking-cost">${h.parking === 0 ? 'Free' : '$' + (h.parking * 4)}</span></div>
       <div class="parking-item"><span class="parking-label" style="font-size: 11px; color: var(--ink-faint);">${h.parkingNote}</span></div>
@@ -394,9 +412,91 @@ function openModal(hotelName) {
       <div class="sync-status" id="modalSyncStatus">💾 Ready</div>
     </div>
   `;
+  
+  const pricing = PRICING_DATA[hotelName] || {};
+  const promoHtml = pricing.promoCodes ? pricing.promoCodes.map(code => '<span style="display: inline-block; background: #e2f1ea; color: var(--kelp); padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 6px; font-weight: 600; margin-bottom: 4px;">' + code + '</span>').join('') : 'No current promos';
+  const pricePerPerson = h.total / (h.nights * 2); 
+  const lastMinuteDeal = pricing.dealScore >= 70 ? '✓ Good deal — book soon' : pricing.dealScore >= 55 ? '~ Fair — check daily' : '✗ Premium pricing';
+  const priceHistoryChart = pricing.priceHistory ? '<div style="display: flex; align-items: flex-end; gap: 6px; height: 80px; margin: 8px 0;">' + pricing.priceHistory.map(p => '<div style="flex: 1; height: ' + ((p / Math.max(...pricing.priceHistory)) * 100) + '%; background: var(--sea); border-radius: 3px 3px 0 0;" title="$' + p + '"></div>').join('') + '</div><div style="font-size: 11px; color: var(--ink-faint); text-align: center;">Trend: ' + (pricing.priceHistory[pricing.priceHistory.length-1] < pricing.priceHistory[0] ? '↓ declining' : '↑ rising') + '</div>' : '';
+  
+  const pricingTab = `
+    <div class="modal-section">
+      <div class="modal-label">🔗 Book Direct</div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0;">
+        <a href="${pricing.bookingUrl}" target="_blank" rel="noopener" style="display: inline-block; background: var(--sea); color: #fff; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600;">Booking.com</a>
+        <a href="${pricing.hotelsUrl}" target="_blank" rel="noopener" style="display: inline-block; background: var(--sea); color: #fff; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600;">Hotels.com</a>
+      </div>
+    </div>
+    
+    <div class="modal-section">
+      <div class="modal-label">📊 Price Trend</div>
+      ${priceHistoryChart}
+    </div>
+    
+    <div class="modal-sections-grid">
+      <div class="modal-section">
+        <div class="modal-label">💰 Promo Codes</div>
+        <div style="margin: 8px 0;">${promoHtml}</div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-label">🎯 Deal Score</div>
+        <p style="margin: 8px 0; font-size: 13px;">${lastMinuteDeal}</p>
+      </div>
+    </div>
+    
+    <div class="modal-sections-grid">
+      <div class="modal-section">
+        <div class="modal-label">👥 Per-Person Cost</div>
+        <p style="font-size: 24px; font-weight: 600; color: var(--sea-deep); margin: 8px 0;">${fmtCAD0(pricePerPerson)}</p>
+        <p style="font-size: 12px; color: var(--ink-soft);">Based on 2 adults</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-label">📋 Taxes & Fees</div>
+        <div style="margin: 8px 0; font-size: 13px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 0.5px solid var(--line);">
+            <span color="var(--ink-soft)">Taxes (${pricing.taxRate}%)</span>
+            <span style="font-weight: 600;">$${Math.round(h.total * pricing.taxRate / 100)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span>Resort fees (est.)</span>
+            <span style="font-weight: 600;">$${pricing.fees}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding-top: 6px; border-top: 1px solid var(--line);">
+            <span style="font-weight: 600;">Total with taxes</span>
+            <span style="font-weight: 600; font-size: 14px; color: var(--sea-deep);">${fmtCAD(h.total + (h.total * pricing.taxRate / 100) + pricing.fees)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  const body = `
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchTab('details', '${hotelName.replace(/'/g, "\\'")}')" data-tab="details">Details</button>
+      <button class="modal-tab" onclick="switchTab('pricing', '${hotelName.replace(/'/g, "\\'")}')" data-tab="pricing">Pricing & deals</button>
+    </div>
+    <div id="detailsTab" class="modal-tab-content active" style="padding-top: 20px;">
+      ${detailsTab}
+    </div>
+    <div id="pricingTab" class="modal-tab-content" style="padding-top: 20px;">
+      ${pricingTab}
+    </div>
+  `;
+  
   document.getElementById("modalBody").innerHTML = body;
   document.getElementById("modalNotesInput").value = state.notes[hotelName] || '';
   document.getElementById("hotelModal").classList.add("active");
+}
+
+function switchTab(tabName, hotelName) {
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  if (tabName === 'details') {
+    document.getElementById('detailsTab').classList.add('active');
+  } else if (tabName === 'pricing') {
+    document.getElementById('pricingTab').classList.add('active');
+  }
 }
 
 function saveModalNote(hotelName) {
