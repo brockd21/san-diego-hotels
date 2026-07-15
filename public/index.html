@@ -54,6 +54,10 @@
   td { padding: 13px 14px; border-top: 1px solid var(--line); vertical-align: top; font-size: 13.5px; cursor: pointer; }
   tbody tr:hover { background: var(--wash); }
   tr.new-row td { background: #fdf8ee; }
+  tr.deleted-row { opacity: 0.5; }
+  tr.deleted-row td { color: var(--ink-faint); text-decoration: line-through; }
+  .delete-btn { background: none; border: none; color: var(--coral); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
+  .delete-btn:hover { color: #8b3a1f; }
   .hotel-name { font-weight: 600; font-size: 14.5px; }
   .hotel-name a { color: var(--sea-deep); text-decoration: none; border-bottom: 1px dashed #9fbec7; }
   .hotel-name a:hover { color: var(--sea); border-bottom-style: solid; }
@@ -164,6 +168,7 @@
   <button class="chip" data-filter="under4k">Under $4,000 CAD</button>
   <button class="chip" data-filter="starred">★ Favorites</button>
   <button class="chip" data-filter="beach">🏖️ Beach access</button>
+  <button class="chip" data-filter="deleted">🗑️ Deleted</button>
   <button class="chip" data-amenity="pool">🏊 Pool</button>
   <button class="chip" data-amenity="courts">🏐 Pickleball</button>
   <button class="chip" data-amenity="gym">💪 Gym</button>
@@ -316,28 +321,31 @@ const px = lon => PAD + (lon - LON0) / (LON1 - LON0) * (W - 2 * PAD);
 const py = lat => PAD + (LAT1 - lat) / (LAT1 - LAT0) * (H - 2 * PAD);
 const pt = (lat, lon) => px(lon).toFixed(1) + "," + py(lat).toFixed(1);
 
-let state = { col: "total", asc: true, filter: "all", amenities: [], search: "", starred: [], currentHotel: null, notes: {} };
+let state = { col: "total", asc: true, filter: "all", amenities: [], search: "", starred: [], currentHotel: null, notes: {}, deleted: [] };
 
 const COLS = { name: { get: h => h.name, label: "Hotel name" }, rating: { get: h => h.tripadvisor_rating || 0, label: "TripAdvisor rating" }, total: { get: h => h.total, label: "Total cost" }, nights: { get: h => h.nights, label: "Nights" }, pernight: { get: h => h.total / h.nights, label: "Per-night cost" }, comp4: { get: h => h.comp4, label: "4-night equivalent" }, rooms: { get: h => h.roomsSort, label: "Rooms" }, beach: { get: h => h.beach, label: "Beach access" }, walk: { get: h => h.walk, label: "Walkability" }, drive: { get: h => h.drive, label: "Drive to La Jolla" }, san: { get: h => h.san, label: "Drive to SAN" }, tripdrive: { get: h => h.tripDrive, label: "Trip driving total" }, fit: { get: h => h.fit, label: "Itinerary fit" } };
 
 function passesFilter(h) { 
-  if (state.filter === "walkable") return h.walkable; 
-  if (state.filter === "beachfront") return h.beachfront;
-  if (state.filter === "beach") return h.amenities.beach;
-  if (state.filter === "under4k") return h.comp4 < 4000; 
-  if (state.filter === "starred") return state.starred.includes(h.name); 
+  if (state.filter === "walkable") return !state.deleted.includes(h.name) && h.walkable; 
+  if (state.filter === "beachfront") return !state.deleted.includes(h.name) && h.beachfront;
+  if (state.filter === "beach") return !state.deleted.includes(h.name) && h.amenities.beach;
+  if (state.filter === "under4k") return !state.deleted.includes(h.name) && h.comp4 < 4000; 
+  if (state.filter === "starred") return !state.deleted.includes(h.name) && state.starred.includes(h.name); 
+  if (state.filter === "deleted") return state.deleted.includes(h.name);
   if (state.search && !h.name.toLowerCase().includes(state.search.toLowerCase()) && !h.area.toLowerCase().includes(state.search.toLowerCase())) return false;
   if (state.amenities.length > 0) {
     for (let a of state.amenities) {
       if (!h.amenities[a]) return false;
     }
   }
-  return true; 
+  return !state.deleted.includes(h.name);
 }
 
 function sortedFiltered() { return HOTELS.filter(passesFilter).slice().sort((a, b) => { const va = COLS[state.col].get(a), vb = COLS[state.col].get(b); const cmp = (typeof va === "number") ? va - vb : String(va).localeCompare(String(vb)); return state.asc ? cmp : -cmp; }); }
 
 function toggleStar(name, e) { e.stopPropagation(); const idx = state.starred.indexOf(name); if (idx > -1) state.starred.splice(idx, 1); else state.starred.push(name); db.ref('starred').set(state.starred); renderTable(); }
+
+function toggleDelete(name, e) { e.stopPropagation(); const idx = state.deleted.indexOf(name); if (idx > -1) state.deleted.splice(idx, 1); else state.deleted.push(name); db.ref('deleted').set(state.deleted); renderTable(); }
 
 function selectHotel(name) { state.currentHotel = name; const h = HOTELS.find(x => x.name === name); if (h) { document.getElementById("parkingPanel").innerHTML = '<div class="parking-item"><span class="parking-label">Valet/Self</span><span class="parking-cost">' + (h.parking === 0 ? 'Free' : '$' + (h.parking * 4)) + '</span></div><div class="parking-item"><span class="parking-label" style="font-size: 11px; color: var(--ink-faint);">' + h.parkingNote + '</span></div>'; document.getElementById("nearbyPanel").innerHTML = '<div class="nearby-list">' + h.nearby.map(n => '<div class="nearby-item">🗺️ ' + n + '</div>').join('') + '</div>'; document.getElementById("notesInput").value = state.notes[name] || ''; } }
 
@@ -556,7 +564,8 @@ function renderTable() {
     const fc = h.fitGrade === "A" ? "fit-a" : h.fitGrade === "B" ? "fit-b" : "fit-c"; 
     const extra = h.tripDrive - best; 
     const isStarred = state.starred.includes(h.name); 
-    return '<tr class="' + (h.isNew ? "new-row" : "") + '" onclick="openModal(\'' + h.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;"><td><button class="star-btn ' + (isStarred ? 'starred' : '') + '" onclick="toggleStar(\'' + h.name.replace(/'/g, "\\'") + '\', event)" title="favorite">★</button> <div class="hotel-name"><a href="' + gmb(h.gq) + '" target="_blank" rel="noopener">' + h.name + '</a><span class="ext">↗</span>' + (h.isNew ? '<span class="new-badge">NEW</span>' : '') + '</div><div class="hotel-area">' + h.area + '</div></td><td class="rating-col"><div class="rating-value">' + (h.tripadvisor_rating ? h.tripadvisor_rating.toFixed(1) : '—') + '</div></td><td class="num total">' + fmtCAD(h.total) + '</td><td class="num">' + h.nights + '</td><td>' + h.rooms + '</td><td>' + (h.amenities.pool ? '<span class="amenity-badge">🏊 Pool</span>' : '') + (h.amenities.courts ? '<span class="amenity-badge">🏐 Pickleball</span>' : '') + (h.amenities.gym ? '<span class="amenity-badge">💪 Gym</span>' : '') + (h.amenities.parking ? '<span class="amenity-badge">🅿️ Free</span>' : '') + (h.amenities.beach ? '<span class="amenity-badge">🏖️ Beach</span>' : '') + '</td><td>' + dots(h.beach) + '<div class="score-note">' + h.beachNote + '</div></td><td>' + dots(h.walk) + '<div class="score-note">' + h.walkNote + '</div></td><td class="num">' + (h.drive === 0 ? "Walkable" : h.drive + " min") + '</td><td class="num">' + h.san + ' min</td><td><span class="drive-total">' + fmtDur(h.tripDrive) + '</span><div class="drive-note">' + (extra === 0 ? "Least driving" : "+" + fmtDur(extra)) + '</div></td><td><span class="fit ' + fc + '">' + h.fitGrade + ' · ' + h.fit + '/5</span><div class="fit-note">' + h.fitNote + '</div></td></tr>'; 
+    const isDeleted = state.deleted.includes(h.name);
+    return '<tr class="' + (h.isNew ? "new-row " : "") + (isDeleted ? "deleted-row" : "") + '" onclick="openModal(\'' + h.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;"><td><button class="star-btn ' + (isStarred ? 'starred' : '') + '" onclick="toggleStar(\'' + h.name.replace(/'/g, "\\'") + '\', event)" title="favorite">★</button><button class="delete-btn" onclick="toggleDelete(\'' + h.name.replace(/'/g, "\\'") + '\', event)" title="delete">🗑️</button> <div class="hotel-name"><a href="' + gmb(h.gq) + '" target="_blank" rel="noopener">' + h.name + '</a><span class="ext">↗</span>' + (h.isNew ? '<span class="new-badge">NEW</span>' : '') + '</div><div class="hotel-area">' + h.area + '</div></td><td class="rating-col"><div class="rating-value">' + (h.tripadvisor_rating ? h.tripadvisor_rating.toFixed(1) : '—') + '</div></td><td class="num total">' + fmtCAD(h.total) + '</td><td class="num">' + h.nights + '</td><td>' + h.rooms + '</td><td>' + (h.amenities.pool ? '<span class="amenity-badge">🏊 Pool</span>' : '') + (h.amenities.courts ? '<span class="amenity-badge">🏐 Pickleball</span>' : '') + (h.amenities.gym ? '<span class="amenity-badge">💪 Gym</span>' : '') + (h.amenities.parking ? '<span class="amenity-badge">🅿️ Free</span>' : '') + (h.amenities.beach ? '<span class="amenity-badge">🏖️ Beach</span>' : '') + '</td><td>' + dots(h.beach) + '<div class="score-note">' + h.beachNote + '</div></td><td>' + dots(h.walk) + '<div class="score-note">' + h.walkNote + '</div></td><td class="num">' + (h.drive === 0 ? "Walkable" : h.drive + " min") + '</td><td class="num">' + h.san + ' min</td><td><span class="drive-total">' + fmtDur(h.tripDrive) + '</span><div class="drive-note">' + (extra === 0 ? "Least driving" : "+" + fmtDur(extra)) + '</div></td><td><span class="fit ' + fc + '">' + h.fitGrade + ' · ' + h.fit + '/5</span><div class="fit-note">' + h.fitNote + '</div></td></tr>'; 
   }).join(""); 
   document.querySelectorAll("th").forEach(th => { 
     const active = th.dataset.col === state.col; 
@@ -639,6 +648,7 @@ if (localStorage.getItem("darkMode") === "true") document.body.classList.add("da
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
 db.ref('starred').on('value', snap => { state.starred = snap.val() || []; renderTable(); });
+db.ref('deleted').on('value', snap => { state.deleted = snap.val() || []; renderTable(); });
 db.ref('notes').on('value', snap => { const notes = snap.val() || {}; Object.keys(notes).forEach(key => { state.notes[key.replace(/_/g, ' ')] = notes[key]; }); if (state.currentHotel) { document.getElementById("notesInput").value = state.notes[state.currentHotel] || ''; } });
 
 renderAll();
